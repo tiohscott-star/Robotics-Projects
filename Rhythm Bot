@@ -1,0 +1,257 @@
+/*how this code is supposed to work, is that in setup, 4 lists will be updated to the song, all giving the timing of each light and when they'll go on. What this means is that
+index 1 for light 1 is when the first note is on its first tick. In other words, as index increase, the Note is shifting. As the lists move down, the value of the index increase by "duration".
+Then have multiple functions, each relating to the lists (example: void light1(){) that will run in order. Each function runs by working in this order:
+Switchcase -> function runs from the index of the function to the next function. (example: if im trying to make light1 go, then i will have the light, corresponding to the Note, light up until time
+reaches the index of light2) [this will work using a while loop]   */
+
+#include "pitches.h"
+
+
+const int songLength = 29;
+char notes[] = "eee eee egcde fffffeeeeggfdc ";
+int beats[] = {2,2,3,1, 2,2,3,1, 2,2,3,1,4,4, 2,2,3, 1,2,2,2, 1,1,2,2,2,2,4,4};
+int tempo = 260;
+int light1[songLength]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int light2[songLength]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int light3[songLength]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int sound[songLength]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+unsigned long running_millis;
+int starting_pause;
+bool State1;
+bool State2;
+bool State3;
+bool State4;
+char NOTE = 'z';
+int duration;
+int BuzzerPin = 2;
+int gol;
+int gol2;
+int gol3;
+int gol4;
+int error = 10;
+int once1=0;
+int once2=0;
+int note_count;
+int once_again;
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  pinMode(BuzzerPin,OUTPUT);
+  pinMode(4,OUTPUT);
+  pinMode(5,OUTPUT);
+  pinMode(12,OUTPUT); //end of case 'e', red
+  pinMode(13,OUTPUT);
+  pinMode(14,OUTPUT);
+  pinMode(15,OUTPUT); //end of case 'c', yellow
+  pinMode(16,OUTPUT);
+  pinMode(17,OUTPUT);
+  pinMode(18,OUTPUT); //end of case 'g', green
+  pinMode(19,OUTPUT);
+  pinMode(21,OUTPUT);
+  pinMode(22,OUTPUT); //end of case 'f', orange
+  pinMode(23,OUTPUT);
+  pinMode(25,OUTPUT);
+  pinMode(26,OUTPUT); //end of case 'd', blue
+  pinMode(27,OUTPUT);
+  pinMode(32,OUTPUT);
+  pinMode(33,OUTPUT); //end of case 'bonus'
+  pinMode(34,INPUT_PULLDOWN); // case 'E' button
+  pinMode(35,INPUT_PULLDOWN); // case 'c' and 'g' button
+  pinMode(36,INPUT_PULLDOWN); //case 'f' button
+  pinMode(39,INPUT_PULLDOWN); //case 'd' and bonus button
+  starting_pause = 3000;
+  once_again=0;
+  State1=false;
+  State2=false;
+  State3=false;
+  State4=false;
+  for(int i = 0; i<songLength; i++){
+    int duration=beats[i]*tempo;
+    light1[i] = starting_pause;
+    light2[i] = starting_pause + duration*1/4;
+    light3[i] = starting_pause + duration *2/4;
+    sound[i] = starting_pause + duration *3/4;
+    starting_pause+=duration;
+  }
+  note_count=0;
+  gol=-1;
+  gol2=0;
+  gol3=0;
+  gol4=0;
+  Serial.println("lets start!");
+}
+void loop() {
+  // put your main code here, to run repeatedly:
+  running_millis = millis();
+  Serial.println(gol4);
+  Light1();
+  Light2();
+  Light3();
+  Sound();
+} //end of void loop
+
+
+void Light1(){
+  if(running_millis%light1[note_count]<=error){
+    State1=true;}
+  else{State1 = false;
+    once1=0;}
+  if(State1 == true){
+    once1++;
+    if (once1==1){
+      gol++;
+      gol2=gol;
+      note_count++;}
+    NOTE=notes[gol];
+    switch(NOTE){
+      case 'e':
+        digitalWrite(4,HIGH);
+        break;
+      case 'c':
+        digitalWrite(13,HIGH);
+        break;
+      case 'g':
+        digitalWrite(16,HIGH);
+        break;
+      case 'f':
+        digitalWrite(19,HIGH);
+        break;
+      case 'd':
+        digitalWrite(23,HIGH);
+        break;
+      case 'a':
+        digitalWrite(27,HIGH);
+        break;
+      
+  } //end of switchcase
+} //end of lightup
+} //end of light1()
+
+void Light2(){
+    if(running_millis%light2[gol2]<=error){
+      State2=true;
+    }else{State2 = false;}
+  if(State2 == true){
+    gol3=gol2;
+    NOTE=notes[gol2];
+    switch(NOTE){
+      case 'e':
+        digitalWrite(4,LOW);
+        digitalWrite(5,HIGH);
+        break;
+      case 'c':
+        digitalWrite(13,LOW);
+        digitalWrite(14,HIGH);
+        break;
+      case 'g':
+        digitalWrite(16,LOW);
+        digitalWrite(17,HIGH);
+        break;
+      case 'f':
+        digitalWrite(19,LOW);
+        digitalWrite(21,HIGH);
+        break;
+      case 'd':
+        digitalWrite(23,LOW);
+        digitalWrite(25,HIGH);
+        break;
+      case 'a':
+        digitalWrite(27,LOW);
+        digitalWrite(32,HIGH);
+        break;
+  } //end of switchcase
+  } //end of lightup
+} //end of light2()
+
+
+void Light3(){
+    if(running_millis%light3[gol3]<=error){
+      State3=true;
+    }else{State3 = false;}
+  if(State3 == true){
+    gol4=gol3;
+    NOTE=notes[gol3];
+    switch(NOTE){
+      case 'e':
+        digitalWrite(5,LOW);
+        digitalWrite(6,HIGH);
+        break;
+      case 'c':
+        digitalWrite(14,LOW);
+        digitalWrite(15,HIGH);
+        break;
+      case 'g':
+        digitalWrite(17,LOW);
+        digitalWrite(18,HIGH);
+        break;
+      case 'f':
+        digitalWrite(21,LOW);
+        digitalWrite(22,HIGH);
+        break;
+      case 'd':
+        digitalWrite(25,LOW);
+        digitalWrite(26,HIGH);
+        break;
+      case 'a':
+        digitalWrite(32,LOW);
+        digitalWrite(33,HIGH);
+  } //end of switchcase
+  } //end of lightup
+} //end of light3()
+
+
+void Sound(){
+  if(running_millis%sound[gol4]<=error){
+    int duration = beats[gol4]*tempo;
+    State4=true;
+  }else{State4 = false;
+  once2=0;}
+  if(State4 == true){
+    once2++;
+    if(once2==1){
+      NOTE=notes[gol4];
+      switch(NOTE){
+        case 'e':
+          if(digitalRead(34)==HIGH){
+            tone(BuzzerPin,e,200);}
+            else{tone(BuzzerPin,100,300);}
+          digitalWrite(12,LOW);
+          break;
+        case 'c':
+          if(digitalRead(35)==HIGH){
+            tone(BuzzerPin,c,200);}
+            else{tone(BuzzerPin,100,300);}
+          digitalWrite(15,LOW);
+          break;
+        case 'g':
+          if(digitalRead(35)==HIGH){
+            tone(BuzzerPin,g,200);}
+            else{tone(BuzzerPin,100,300);}
+          digitalWrite(18,LOW);
+          break;
+        case 'f':
+          if(digitalRead(36)==HIGH){
+            tone(BuzzerPin,f,200);}
+            else{tone(BuzzerPin,100,300);}
+          digitalWrite(22,LOW);
+          break;
+        case 'd':
+          if(digitalRead(39)==HIGH){
+            tone(BuzzerPin,d,200);}
+            else{tone(BuzzerPin,100,300);}
+          digitalWrite(26,LOW);
+          break;
+        case 'a':
+          if(digitalRead(39)==HIGH){
+            tone(BuzzerPin,a,200);}
+            else{tone(BuzzerPin,100,300);}
+           digitalWrite(33,LOW);
+          break;
+        
+        
+      } //end of switchcase
+    } //end of once2
+  } //end of lightup
+} //end of light1()
