@@ -1,0 +1,220 @@
+#include<Wire.h>
+#include<Adafruit_PWMServoDriver.h>
+Adafruit_PWMServoDriver pwm;
+int ServoPins[4]={11,12,13,14};  //11 for 360 larger, 12 for 180 larger, 13 for jaw, 14 for wings flap
+
+int red1 = 5;
+int blue1 = 7;
+int green1 = 8;
+int red2 = 9;
+int blue2 = 10;
+int green2 = 11;
+
+int center =270; 
+int pos = center; //starting position of larger 180 servo
+int range = 50;
+int leftrange = pos - range;
+int rightrange = pos + range;
+int direction = 3;
+int tilt_timer = 30;
+
+int wingspeed = 330; //tbd
+int stop_wingspeed = 300; //tbd
+int wingcount = 0;
+int jaw = 250;
+int jaw_min=200;
+int jaw_direction = -1;
+
+//ultrasonics
+int Rtrig = 2;
+int Recho = A2;
+int Ltrig = 3;
+int Lecho = A3;
+long LtimeinMicro;
+int LdistanceinCm;
+long RtimeinMicro;
+int RdistanceinCm;
+int difference;
+bool valid = false;
+
+int IRsensor = 12;
+int previous_input;
+bool touch_toggle = false;
+int LDR = A0;
+int BlueLeds = 13;
+int Led_counter;      // a counting tool to keep the blue leds lit before dimming after a while
+int brightness = 0;
+
+long current_time;
+long saved_time;    //done so the loop can start
+int head_timer = 2000; //2 seconds
+int touch_count=0;
+bool action_done = true;
+bool action_time = false;
+int case1_counter=0;
+int case2_counter=0;
+int case3_counter=0;
+int case1_servocounter=0;
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+  pwm.begin();
+  pwm.setPWMFreq(50);
+  pinMode(green1,OUTPUT);
+  pinMode(blue1,OUTPUT);
+  pinMode(red1,OUTPUT);
+  pinMode(green2,OUTPUT);
+  pinMode(blue2,OUTPUT);
+  pinMode(red2,OUTPUT);
+
+  pinMode(Ltrig,OUTPUT);
+  pinMode(Lecho,INPUT);
+  pinMode(Rtrig,OUTPUT);
+  pinMode(Recho,INPUT);
+
+  pinMode(LDR,INPUT);
+
+  for (int i=0;i<5;i++){
+    pwm.setPWM(ServoPins[i],0,0);
+  }
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  //ultrasonics
+  millis();
+  digitalWrite(Ltrig,LOW);
+  delayMicroseconds(2);
+  digitalWrite(Ltrig,HIGH);
+  delayMicroseconds(10);
+  digitalWrite(Ltrig,LOW);
+  LtimeinMicro=pulseIn(Lecho,HIGH);
+  LdistanceinCm=LtimeinMicro/29/2;
+
+  digitalWrite(Rtrig,LOW);
+  delayMicroseconds(2); 
+  digitalWrite(Rtrig,HIGH);
+  delayMicroseconds(10);
+  digitalWrite(Rtrig,LOW);
+  RtimeinMicro=pulseIn(Recho,HIGH);
+  RdistanceinCm=RtimeinMicro/29/2;
+  if(RdistanceinCm<10 || LdistanceinCm<10){
+    valid=true;
+  }else{valid=false;}
+  difference = LdistanceinCm-RdistanceinCm; //if possitive, object is on the right. Move left (minus position)
+
+  if(pos==center){    //reset count if centerede
+    tilt_timer=30;  
+    pwm.setPWM(ServoPins[3],0,wingspeed);
+  }
+  if(valid==true){ //if within distance cap
+    if(difference>20 || difference<-20){    //moving will occur
+        pwm.setPWM(ServoPins[3],0,stop_wingspeed);  
+    }
+    if(difference>20 && pos>=leftrange){//move left
+      pos-=direction;
+      tilt_timer= 30;
+    }else if(difference<-20 && pos<=rightrange){ //move right
+      pos+=direction;
+      tilt_timer = 30;}
+  }
+  if(tilt_timer<=0 && difference>-20 && difference<20){pos=center;  wingcount--;} //reset to center
+  pwm.setPWM(ServoPins[0],0,500);
+  pwm.setPWM(ServoPins[1],0,pos);
+
+  if(digitalRead(IRsensor)==0 && previous_input!=IRsensor){
+    touch_toggle!=touch_toggle;
+  }previous_input = digitalRead(IRsensor);
+
+  if(action_done == true){    //begins the IRsensor checking, only after any previous action was done. You have about 2 seconds to spam inputs. 
+    current_time=millis(); 
+    if(touch_toggle==true){   //sensor touched
+      touch_count++;
+      if(touch_count==1){
+        saved_time=millis();
+      }}
+    if(current_time-saved_time>=head_timer && touch_count>0){
+      action_time = true;
+    }else{action_time = false;}
+  }
+
+  if(action_time == true){    //outside of the action done zone, because when this is active, the irsensor no longer checks. 
+    action_done = false;
+    if(touch_count>=1 && touch_count<3){    //touch once to activate
+      if(case1_counter<6){      //led dims in 3 intervals,3 times total. (blinks 3 times)
+        analogWrite(red1,104);
+        analogWrite(green1,128);
+        analogWrite(blue1,64);
+        analogWrite(red2,104);
+        analogWrite(green2,208);
+        analogWrite(blue2,10);
+        }else{                    //brighthens
+        analogWrite(red1,0);
+        analogWrite(green1,0);
+        analogWrite(blue1,0);
+        analogWrite(red2,0);
+        analogWrite(green2,0);
+        analogWrite(blue2,0);
+      }
+      case1_counter++;
+      if(case1_counter%12==0){case1_counter=0;case1_servocounter++;} //reset to repeat forever, and count servo. Counts every 6 casecounters
+      if(case1_servocounter>=2 && case1_servocounter<3){    //open jaw
+        pwm.setPWM(ServoPins[2],0,jaw);
+        jaw-=((jaw-jaw_min)/6);    //takes 6 casecounters to fully open the jaw
+      }
+      if(case1_servocounter>=3 && case1_servocounter<4){    //close jaw
+        pwm.setPWM(ServoPins[2],0,jaw);
+        jaw+=((jaw-jaw_min)/6);    //takes 6 casecounters to fully open the jaw
+        }
+      if(case1_servocounter>=4){action_done = true;touch_count=0;case1_counter=0;case1_servocounter=0;}    //completes action
+    }
+    if(touch_count>=3 && touch_count<6){    //touch 3 times to activate
+      analogWrite(red1,210);    //softhen eye colour
+      analogWrite(green1,80);
+      analogWrite(blue1,132);
+      analogWrite(red2,255);
+      analogWrite(green2,40);
+      analogWrite(blue2,90);
+      wingspeed+=200;     //flap faster
+      if(case2_counter<6){
+        pwm.setPWM(ServoPins[2],0,jaw);
+        jaw-=((jaw-jaw_min)/12);    //takes 3 casecounters to open the jaw a tiny bit
+        }else{pwm.setPWM(ServoPins[2],0,jaw);
+        jaw+=((jaw-jaw_min)/12);    //closing
+      }case2_counter++;
+      if(case2_counter>=24){action_done = true;touch_count=0;case2_counter=0;wingspeed=330;}}
+    if(touch_count>=6){    //touch more than 6 times to activate
+      analogWrite(red1,180);    //red eyes of angurrr
+      analogWrite(green1,0);
+      analogWrite(blue1,0);
+      analogWrite(red2,180);
+      analogWrite(green2,0);
+      analogWrite(blue2,0);
+      pwm.setPWM(ServoPins[2],0,jaw_min);   //open the jaw to rawr
+      jaw-=((jaw-jaw_min)/3);    //takes 3 casecounters to open the jaw all the way
+      case3_counter++;
+      if(case3_counter>=20){
+      action_done = true; touch_count=0; case3_counter=0;}}
+  }else{analogWrite(red1,104);    //default eyes lighting + any other defualt actions go here
+      analogWrite(green1,128);
+      analogWrite(blue1,64);
+      analogWrite(red2, 104);
+      analogWrite(green2,208);
+      analogWrite(blue2,10);
+      pwm.setPWM(ServoPins[2],0,250);
+      }
+  analogWrite(BlueLeds,brightness);
+  if(analogRead(LDR)>=200){
+    if(brightness<255){
+      Led_counter = 100;    //set the delay before it dims.
+      brightness+=10;}}
+    if(Led_counter<=0 && brightness>0){
+      brightness--;   //dims slower than it brighthens up
+    }
+  
+  Led_counter--;
+  tilt_timer--;
+  delay(50);
+}
