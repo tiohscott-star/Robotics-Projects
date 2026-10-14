@@ -1,0 +1,167 @@
+#include <Servo.h>
+Servo myservo;
+#define aPin 12         //P1
+#define bPin 8          //P3
+#define cPin 5          //P6
+#define dPin 6          //P7
+#define ePin 7          //P5
+#define fPin 11         //P2
+#define gPin 4          //P4
+
+#define D1Pin 13
+#define D2Pin 10
+#define D3Pin 9
+
+#define resetPin A5
+
+int prev_input;
+    
+int zero[] = {1,1,1,1,1,1,0};
+int one[] = {0,1,1,0,0,0,0};
+int two[] = {1,1,0,1,1,0,1};
+int three[] = {1,1,1,1,0,0,1};
+int four[] = {0,1,1,0,0,1,1};
+int five[] = {1,0,1,1,0,1,1};
+int six[] = {1,0,1,1,1,1,1};
+int seven[] = {1,1,1,0,0,0,0};
+int eight[] = {1,1,1,1,1,1,1};
+int nine[] = {1,1,1,1,0,1,1};
+
+long Counter = 3000; 
+bool Start = true;
+bool RED = false;
+bool BLUE = false;
+int pos = 0;
+
+
+int activate_Display = 0; //Set to 0 for Common cathode
+int deactivate_Display = ~activate_Display; 
+int DTime = 1; // Display time is ms
+
+void setup() {
+  Serial.begin(9600);
+  for(int i=13;i>3;i--){
+    pinMode(i,OUTPUT);
+  }
+  pinMode(resetPin,  INPUT_PULLUP);
+  pinMode(2, INPUT);
+  pinMode(3, INPUT);
+  pinMode(A0, INPUT_PULLUP);    //red
+  pinMode(A1, INPUT_PULLUP);    //green
+  pinMode(A2,OUTPUT);
+  if(digitalRead(A0)==0){
+    RED=true;
+  }if(digitalRead(A1)==0){BLUE=true;}
+  myservo.attach(A3);
+}
+
+
+
+void loop() {
+  int reset = digitalRead(resetPin);
+  int wire0 = digitalRead(3);
+  int wire1 = digitalRead(2);
+  if(RED==true){
+    if(wire0==0 || wire1==0){
+      Start = false;
+    if(wire1==0){while(true){myservo.write(pos);pos+=50;Serial.println("working");}}    //failed
+    }
+  }if(BLUE==true){
+    if(wire1==0 || wire1==0){
+      Start = false;
+    }if(wire0==0){while(true){myservo.write(pos);pos+=50;Serial.println("working");}}   //failed
+  }if(RED==false && BLUE == false){Start = false;}
+  if(reset == 0 && prev_input!= reset){
+    Start = !Start;
+  }prev_input = reset;
+  if (Counter <=0) {
+    myservo.write(pos);pos+=200;
+    if (reset == LOW) {
+      delay(100);
+      Counter=3000;
+    }
+    displayNumber(8);
+    digitalWrite(D1Pin, activate_Display);
+    delay(DTime);
+    digitalWrite(D1Pin, deactivate_Display);
+
+    displayNumber(8);
+    digitalWrite(D2Pin, activate_Display);
+    delay(DTime);
+    digitalWrite(D2Pin, deactivate_Display);
+    
+    displayNumber(8);
+    digitalWrite(D3Pin, activate_Display);
+    delay(DTime);
+    digitalWrite(D3Pin, deactivate_Display);
+  }
+  else {
+    tone(A3,500,500);
+    displayNumber((Counter/1000)%10);
+    digitalWrite(D1Pin, activate_Display);
+    delay(DTime);
+    digitalWrite(D1Pin, deactivate_Display);
+
+    displayNumber((Counter/100)%10);
+    digitalWrite(D2Pin, activate_Display);
+    delay(DTime);
+    digitalWrite(D2Pin, deactivate_Display);
+    
+    displayNumber((Counter/10)%10);
+    digitalWrite(D3Pin, activate_Display);
+    delay(DTime);
+    digitalWrite(D3Pin, deactivate_Display);
+    
+    delay(6);
+
+    if (Start == true) {
+      Counter--;
+    }
+  }
+}
+void displayNumber(int x)
+{
+   switch(x)
+   {
+     case 1: 
+      writeAll(one);
+     break;
+     case 2: 
+      writeAll(two);  
+     break;
+     case 3: 
+      writeAll(three);
+     break;
+     case 4: 
+      writeAll(four);
+     break;
+     case 5: 
+      writeAll(five);
+     break;
+     case 6: 
+      writeAll(six);
+     break;
+     case 7: 
+      writeAll(seven);
+     break;
+     case 8: 
+      writeAll(eight);
+     break;
+     case 9: 
+      writeAll(nine);
+     break;
+     default: 
+      writeAll(zero);
+     break;
+   }
+}
+
+void writeAll(int arr[]) {
+  digitalWrite(12, arr[0]);
+  digitalWrite(8, arr[1]);
+  digitalWrite(5, arr[2]);
+  digitalWrite(6, arr[3]);
+  digitalWrite(7, arr[4]);
+  digitalWrite(11, arr[5]);
+  digitalWrite(4, arr[6]);
+}
