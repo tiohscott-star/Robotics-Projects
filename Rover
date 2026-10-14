@@ -1,0 +1,199 @@
+#include <Adafruit_PWMServoDriver.h>
+#include <MPU6050.h>
+#include <Wire.h>
+#include "BluetoothSerial.h"
+MPU6050 mpu;
+Adafruit_PWMServoDriver pwm;
+int neutral = 300;
+int servoPins[4]={0,1,2,3};
+int left = neutral - 50;
+int right = neutral + 50;
+char direction;
+int error = 10;
+
+int MOTOR_SPEED = 255;
+int frontrightmotor1 = 2;
+int frontrightmotor2 = 3;
+int frontleftmotor1 = 4;
+int frontleftmotor2 = 5;
+int trig=7;
+int echo=6;
+long timeinMicro;
+int distanceinCm;
+int sensor_distance = 10;
+int countY=0;
+int countZ=0;
+
+char previous_input;
+
+void setup() {
+  Serial.begin(115200);
+  // put your setup code here, to run once:
+  pinMode(8, OUTPUT);
+  pinMode(trig,OUTPUT);
+  pinMode(echo,INPUT);
+  pinMode(frontrightmotor1,OUTPUT);
+  pinMode(frontrightmotor2,OUTPUT);
+  pinMode(frontleftmotor1,OUTPUT);
+  pinMode(frontleftmotor2,OUTPUT);
+
+  digitalWrite(frontrightmotor1,LOW);
+  digitalWrite(frontrightmotor2,LOW);
+  digitalWrite(frontleftmotor1,LOW);
+  digitalWrite(frontleftmotor2,LOW);
+
+  Wire.begin();
+  mpu.initialize();
+  pwm.begin();
+  pwm.setPWMFreq(50);
+  previous_input = ' ';
+}
+
+void loop() {
+    digitalWrite(trig,LOW);
+    delayMicroseconds(2);
+    digitalWrite(trig,HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trig,LOW);
+    timeinMicro=pulseIn(echo,HIGH);
+    distanceinCm=timeinMicro/29/2;
+    char bluetooth_input= Serial.read();
+    Serial.println(distanceinCm);
+    Serial.println(bluetooth_input);
+    if(distanceinCm>=sensor_distance){                                            //sensor is not triggered
+      switch(bluetooth_input){
+      case 'w':
+        analogWrite(frontrightmotor1,MOTOR_SPEED);
+        analogWrite(frontrightmotor2,0);
+        analogWrite(frontleftmotor1,MOTOR_SPEED);
+        analogWrite(frontleftmotor2,0);
+        previous_input = 'w';
+        break;
+
+      case 's':
+        analogWrite(frontrightmotor1,0);
+        analogWrite(frontrightmotor2,MOTOR_SPEED);
+        analogWrite(frontleftmotor1,0);
+        analogWrite(frontleftmotor2,MOTOR_SPEED);
+        previous_input = 's';
+        break;
+      
+      case 'a':
+        analogWrite(frontrightmotor1,MOTOR_SPEED);
+        analogWrite(frontrightmotor2,0);
+        analogWrite(frontleftmotor1,0);
+        analogWrite(frontleftmotor2,MOTOR_SPEED);
+        previous_input = 'a';
+        break;
+
+      case 'd':
+        analogWrite(frontrightmotor1,0);
+        analogWrite(frontrightmotor2,MOTOR_SPEED);
+        analogWrite(frontleftmotor1,MOTOR_SPEED);
+        analogWrite(frontleftmotor2,0);
+        previous_input = 'd';
+        break;}}
+    else{                                                                         //if sensor triggered
+    if(bluetooth_input!=previous_input){
+      tone(8,300,30);
+      switch(bluetooth_input){
+      case 'w':
+        analogWrite(frontrightmotor1,MOTOR_SPEED);
+        analogWrite(frontrightmotor2,0);
+        analogWrite(frontleftmotor1,MOTOR_SPEED);
+        analogWrite(frontleftmotor2,0);
+        previous_input = 'w';
+        break;
+
+      case 's':
+        analogWrite(frontrightmotor1,0);
+        analogWrite(frontrightmotor2,MOTOR_SPEED);
+        analogWrite(frontleftmotor1,0);
+        analogWrite(frontleftmotor2,MOTOR_SPEED);
+        previous_input = 's';
+        break;
+      
+      case 'a':
+        analogWrite(frontrightmotor1,MOTOR_SPEED);
+        analogWrite(frontrightmotor2,0);
+        analogWrite(frontleftmotor1,0);
+        analogWrite(frontleftmotor2,MOTOR_SPEED);
+        previous_input = 'a';
+        break;
+
+      case 'd':
+        analogWrite(frontrightmotor1,0);
+        analogWrite(frontrightmotor2,MOTOR_SPEED);
+        analogWrite(frontleftmotor1,MOTOR_SPEED);
+        analogWrite(frontleftmotor2,0);
+        previous_input = 'd';
+        break;
+    }}else{
+      Serial.println("speaker manfunction");
+        tone(8,300,30);
+        analogWrite(frontrightmotor1,0);
+        analogWrite(frontrightmotor2,0);
+        analogWrite(frontleftmotor1,0);
+        analogWrite(frontleftmotor2,0);
+  }}
+  delay(30);                                                                      //buffer for sensor to work better
+  //gyroscope bit
+  int16_t ax, ay, az;
+  mpu.getAcceleration(&ax, &ay, &az);
+  int angle_X = map(ax, -16000, 16000, 0, 180);
+  int angle_Y = map(ay, -16000, 16000, 0, 180);
+  int angle_Z = map(az, -16000, 16000, 0, 180);
+  Serial.println("angle_X: " + String(angle_X));
+  Serial.println("angle_Y: " + String(angle_Y));
+  Serial.println("angle_Z: " + String(angle_Z));
+  // Y and Z angle is 90 at upright, and X is 0. If Y increase, its tilted right, if Z increase, its tilted backwards. Giving each an error, angle space is 85-95 for Y and Z
+  if (angle_Y > (90 + error)){direction= 'a';}                                //tilted right, go left
+  else if (angle_Y< (90 - error)){direction= 'd';}                            //tilted left, go right
+  else if (angle_X> (90 + error)){direction= 'w';}                            //tilted back, go forward
+  else if (angle_X< (90 - error)){direction= 's';}                            //tiled forward, go back
+  else{direction= ' ';}                                                       //upright
+  Serial.print("direction is: ");Serial.println(direction);
+  
+  switch(direction){                                                          //servos move
+    if (countY>=30||countY<=-30||countZ>=30||countZ<=-30){
+      direction=' ';
+    }else{
+    case 'a':
+      pwm.setPWM(0, 0, neutral);
+      pwm.setPWM(1,0, left);
+      pwm.setPWM(2,0, left);
+      countY++;
+      break;
+    case 'd':
+      pwm.setPWM(0, 0, neutral);
+      pwm.setPWM(1,0, right);
+      pwm.setPWM(2,0, right);
+      countY--;
+      break;
+    case 's':
+      pwm.setPWM(0, 0, left);
+      pwm.setPWM(1,0, neutral);
+      pwm.setPWM(2,0, neutral);
+      countZ++;
+      break;
+    case 'w':
+      pwm.setPWM(0, 0, right);
+      pwm.setPWM(1,0, neutral);
+      pwm.setPWM(2,0, neutral);
+      countZ--;
+      break;
+    case ' ':
+      pwm.setPWM(0, 0, neutral);
+      pwm.setPWM(1,0, neutral);
+      pwm.setPWM(2,0, neutral);
+      break;
+  }}
+  /*
+  Serial.print("Accel X: "); Serial.print(ax);
+  Serial.print(" | Accel Y: "); Serial.print(ay);
+  Serial.print(" | Accel Z: "); Serial.println(az);
+   // line to seperate*/
+  Serial.print("Angle X: "); Serial.print(angle_X);
+  Serial.print(" | angle Y: "); Serial.print(angle_Y);
+  Serial.print(" | angle Z: "); Serial.println(angle_Z);
+}
